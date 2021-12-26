@@ -1,0 +1,7 @@
+REPO="https://github.com/kawaiiamber/srcpkgs.git"
+REPO_BRANCH=master
+PKGSDIR=${XDG_DATA_HOME:-~/.local/share}/ppmpss/srcpkgs
+#CC=gcc
+#CXX=g++
+#PREFIX=/usr
+#DESTDIR=
