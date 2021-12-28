@@ -24,8 +24,7 @@ install:
 	cp $(MAN) $(MANDIR)
 	cp $(CONF) $(CONFDIR)
 	chmod 755 $(BINDIR)/$(BIN)
-	chmod 644 $(MANDIR)/$(MAN)
-	chmod 644 $(CONFDIR)/$(CONF)
+	chmod 644 $(MANDIR)/$(MAN) $(CONFDIR)/$(CONF)
 
 uninstall:
 	rm -rf $(BINDIR)/$(BIN) $(CONFDIR) $(MANDIR)/$(MAN)
