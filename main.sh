@@ -129,9 +129,8 @@ do_prepare() {
 # Get the source, can be overriden.
 [ -z "$(command -v do_fetch)" ] && {
 	do_fetch() {
-		[ -n "$distfiles" ] && curl -L -o file
-		[ -n "$giturl" ]
-		[ -n "$commit" ] && git checkout "$commit"
+		[ -z "$distfiles" ] && [ -z "$giturl" ] &&
+			msg error "No distfiles or giturl specified" 3
 	}
 }
 
