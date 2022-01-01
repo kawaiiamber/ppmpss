@@ -1,0 +1,6 @@
+short_desc="Short description"
+version="1.0"
+revision="1"
+distfiles="https://place.to.source/code.tar.gz"
+build_style="makefile"
+license="GPL-3.0-or-later"
