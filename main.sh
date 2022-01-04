@@ -221,6 +221,7 @@ case $1 in
 	done
 	;;
 [Ee]m | [Ee]merge)
+	[ $(id -u) != 0 ] && die 7 "You must be root to emerge packages."
 	shift
 	# TODO: Code it
 	[ $# -eq 0 ] && usage em
