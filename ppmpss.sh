@@ -4,10 +4,14 @@
 
 # shellcheck disable=SC2154
 
+BASEDIR="/usr/local/share/ppmpss"
+PKGSDIR="${BASEDIR}/packages"
+PKGDB="/var/db/ppmpss"
+
 trap interrupt 2
 
 # message and format
-msgf() {
+ppmpss_msg() {
 	printf "[1m=>"
 	case $1 in
 	normal) printf "[36m" ;;
@@ -24,36 +28,40 @@ msgf() {
 }
 
 # Send msg and format
-logf() {
-	msgf normal "$@"
+msgf() {
+	ppmpss_msg normal "$@"
+	echo
 }
 
 # Send pass msg and format
 passf() {
-	msgf pass "$@"
+	ppmpss_msg pass "$@"
+	echo
 }
 
 # Send warning and format
 warnf() {
-	msgf warning "$@"
+	ppmpss_msg warning "$@"
+	echo
 }
 
 # Error and format message
 errorf() {
-	CODE=$1
-	msgf error "$@"
+	CODE="$1"
+	ppmpss_msg error "$@"
+	echo
 	exit "$CODE"
 }
 
 # Prompt and format message
 promptf() {
-	msgf prompt "$@"
+	ppmpss_msg prompt "$@"
 	printf " [y/N]: "
 	read -r RESPONSE
 	case $RESPONSE in
 	[Yy] | [Yy]es) :;;
-	[Nn] | [Nn]o | "") errorf 0 "Aborting...\n" ;;
-	*) errorf 1 "Unknown response: %s\n" "$RESPONSE" ;;
+	[Nn] | [Nn]o | "") errorf 1 "Aborting...\n" ;;
+	*) errorf 2 "Unknown response: %s\n" "$RESPONSE" ;;
 	esac
 	unset RESPONSE
 }
@@ -61,7 +69,7 @@ promptf() {
 # Handle command interrupt
 interrupt() {
 	echo
-	errorf 2 "Command interrupted\n"
+	errorf 1 "Command interrupted\n" & kill 0
 }
 
 # Give basic usage and exit
@@ -81,13 +89,15 @@ package_configure() {
 		return
 	}
 	case $build_style in
-		configure)
+		makefile)
 			: "${configure_script:=configure}"
-			: "${configure_args:=--prefix=$PREFIX}"
+			: "${configure_prefix_args:=--prefix=$PREFIX}"
+			: "${configure_args:=}"
 
-			sh $configure_script $configure_args
+			[ -f "$configure_script" ] && sh $configure_script\
+				$configure_prefix_args $configure_args
 			;;
-		makefile | meson) :;;
+		meson) :;;
 	esac
 }
 
@@ -95,17 +105,17 @@ package_configure() {
 # shellcheck disable=SC2086
 package_build() {
 	case $build_style in
-		configure | makefile)
-			: "${CC:=gcc}"
-			: "${CXX:=g++}"
+		makefile)
+			: "${CC:=cc}"
+			: "${CXX:=c++}"
 
-			: "${make_cmd:=make}"
-			: "${make_build_args:=CC=$CC}"
+			: "${make_build_args:=CC=$CC CXX=$CXX}"
+			: "${make_build_target:=}"
 
-			$make_cmd $make_build_args
+			make $make_build_args $make_build_target
 			;;
 		meson)
-			meson build
+			meson -Dprefix=/usr build
 			ninja -C build
 			;;
 	esac
@@ -115,11 +125,15 @@ package_build() {
 # shellcheck disable=SC2086
 package_install() {
 	case $build_style in
-		configure | makefile)
-			: "${make_cmd:=make}"
-			: "${make_install_args:=PREFIX=$PREFIX DESTDIR=$DESTDIR}"
+		makefile)
+			: "${make_install_args:=PREFIX=/usr DESTDIR=$DESTDIR}"
+			: "${make_install_target:=install}"
 
-			$make_cmd $make_install_args install
+			make $make_install_args $make_install_target
+			;;
+		meson)
+			ninja -C build install
+			;;
 	esac
 }
 
@@ -147,7 +161,7 @@ done
 # shellcheck disable=SC2086
 set -- $args
 
-# Handle args
+# Handle help
 [ $HELP = true ] && {
 	[ $# -gt 0 ] && usage help
 	[ $# = 1 ] && help "$1"
@@ -156,12 +170,39 @@ set -- $args
 
 # Process commands
 case $1 in
+	[Ii]nit | [Ii]nitialize)
+		shift
+		[ "$(id -u)" -eq 0 ] && {
+			msgf "Initializing with default repo..."
+			mkdir -p /usr/share/ppmpss/repos
+			git -C /usr/share/ppmpss/repos clone\
+				"https://github.com/kawaiiamber/ppmpss-default-repo.git"
+		} || {
+			mkdir -p repos
+			msgf "Initializing default repo locally..."
+			git -C repos clone\
+				"https://github.com/kawaiiamber/ppmpss-default-repo.git"
+		}
+		;;
 	[Pp]kg | [Pp]ackage)
 		shift
+		for arg; do (
+			msgf "Packaging %s..." "$arg"
+			for pkg_dep in $makedeps; do
+				$0 pkg "$pkg_dep"
+			done
+		) done
 		;;
-	*) errorf 1 "Unknown command: %s\n" "$1" ;;
+	[Ee]m | [Ee]merge)
+		shift
+		for arg; do (
+			msgf "Emerging %s..." "$arg"
+			for pkg_dep in $rundeps; do
+				$0 em -y "$pkg_dep"
+			done
+		) done
+		;;
+	*) errorf 1 "Unknown command: %s" "$1" ;;
 esac
-
-sleep 5
 
 exit 0
